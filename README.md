@@ -1,4 +1,4 @@
-# Training Planner
+# justTrain
 
 A personal gym training app: plan workouts per gym, schedule them on a week board, log sets with a rest timer, track progress, and look up how to do 876 exercises. Installable on Android and laptops (it's a Progressive Web App) and works offline. Data syncs between devices through Firebase.
 
@@ -10,7 +10,8 @@ A personal gym training app: plan workouts per gym, schedule them on a week boar
 | `config.js` | Firebase project settings (public identifiers, not secrets) |
 | `fb.js` | Firebase JS SDK v13 (app, auth, firestore) bundled into one file, exposed as `window.FB` (Apache-2.0) |
 | `sw.js` | Service worker: offline cache and update prompt |
-| `manifest.webmanifest`, `icons/` | What makes it installable as an app |
+| `manifest.webmanifest`, `icons/` | What makes it installable as an app (icons made from the owner's picture) |
+| `img/bg.webp` | The same picture, shown faded behind the app |
 | `lib/ex.json` | Exercise library index: names, muscles, equipment, instructions |
 | `lib/c/<n>.json` | Exercise pictures: looping 2-frame WebP animations, base64, 5 exercises per file (exercise `NNNN` is in file `floor(NNNN/5)`) |
 | `.nojekyll` | Tells GitHub Pages to serve files as-is |
