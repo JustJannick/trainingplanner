@@ -10,8 +10,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="description" content="Plan, log and track your gym workouts.">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/jt-192.png">
-<link rel="apple-touch-icon" href="icons/jt-apple-180.png">
+<link rel="icon" href="icons/jt2-192.png">
+<link rel="apple-touch-icon" href="icons/jt2-apple-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -886,7 +886,7 @@ $('#view').addEventListener('toggle',e=>{const t=e.target;if(t.matches&&t.matche
 window.addEventListener('hashchange',()=>{readHash();render()});
 setInterval(()=>{if(U.sheet==='log'&&S.active){const el=$('#elapsed');if(el)el.textContent=fmtDur(Date.now()-S.active.start);updateRest()}},500);
 
-const APPV='2026-11-24.2';
+const APPV='2026-11-24.3';
 let auth=null,fs=null,unsubs=[];
 function fbDb(fsx,uid){
  const F=window.FB,base='users/'+uid+'/';

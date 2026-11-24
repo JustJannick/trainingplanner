@@ -1,11 +1,11 @@
 // justTrain service worker: makes the app installable and usable offline.
 // Bump VERSION on every release so installed apps notice the update and show "Update now".
-const VERSION = '2026-11-24.2';
+const VERSION = '2026-11-24.3';
 const SHELL = 'tp-shell-' + VERSION;
 const MEDIA = 'tp-media-1';
 const FONTS = 'tp-fonts-1';
 const FILES = ['./', 'index.html', 'fb.js', 'config.js', 'manifest.webmanifest', 'lib/ex.json',
-  'img/bg.webp', 'icons/jt-192.png', 'icons/jt-512.png', 'icons/jt-apple-180.png'];
+  'img/bg.webp', 'icons/jt2-192.png', 'icons/jt2-512.png', 'icons/jt2-apple-180.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES.map(u => new Request(u, { cache: 'reload' })))));
