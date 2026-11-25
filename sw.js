@@ -1,6 +1,6 @@
 // justTrain service worker: makes the app installable and usable offline.
 // Bump VERSION on every release so installed apps notice the update and show "Update now".
-const VERSION = '2026-11-24.3';
+const VERSION = '2026-11-25.1';
 const SHELL = 'tp-shell-' + VERSION;
 const MEDIA = 'tp-media-1';
 const FONTS = 'tp-fonts-1';

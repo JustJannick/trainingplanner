@@ -222,6 +222,14 @@ tr.done td{background:color-mix(in srgb,var(--pri) 9%,transparent)}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:12px;font-weight:600;max-width:calc(100% - 32px);text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 img[data-m]{background:#fff}
 .thumb{flex:none;width:58px;height:39px;padding:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;cursor:pointer}
+.thumb.hasvid{position:relative}
+.thumb.hasvid::after{content:"\25B6";position:absolute;right:2px;bottom:2px;width:17px;height:17px;border-radius:50%;background:var(--red);color:#fff;font-size:8px;line-height:17px;text-align:center;padding-left:1px;box-sizing:border-box}
+.vid{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000;margin-bottom:10px}
+.vid.tall{aspect-ratio:9/16;width:min(100%,calc(62vh*9/16));margin-inline:auto}
+.vid iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.vidadd{border:1px dashed var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;background:var(--zone)}
+.vidadd b{font:700 19px var(--disp)}
+.vidadd .row input{flex:1 1 220px}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .lex .thumb{width:72px;height:48px}
 .howto{flex:none;min-height:40px;padding:0 10px;font-size:14px}
@@ -340,7 +348,7 @@ const PLATES=[{k:'red',n:'Red',c:'#d32b21'},{k:'blue',n:'Blue',c:'#1747c9'},{k:'
 const TYPES={wr:'Weight × reps',r:'Reps only',t:'Time',d:'Distance + time'};
 const COMMON=['Barbell bench press','Dumbbell bench press','Incline dumbbell press','Push-up','Barbell back squat','Goblet squat','Leg press','Romanian deadlift','Deadlift','Hip thrust','Walking lunge','Bulgarian split squat','Leg extension','Seated leg curl','Calf raise','Lat pulldown','Pull-up','Seated cable row','Single-arm dumbbell row','Face pull','Overhead press','Dumbbell shoulder press','Lateral raise','Biceps curl','Hammer curl','Triceps rope pushdown','Skull crusher','Plank','Side plank','Dead bug','Cable crunch','Kettlebell swing','Farmer carry','Treadmill','Rowing machine','Assault bike','Elliptical','Stair climber'];
 const DEF={folders:[{id:'g1',name:'Gym 1',color:'red'},{id:'g2',name:'Gym 2',color:'blue'},{id:'mine',name:'My workouts',color:'yellow'}],unit:'lb'};
-const S={cfg:null,workouts:{},plan:{},sessions:{},active:null};
+const S={cfg:null,videos:null,workouts:{},plan:{},sessions:{},active:null};
 const U={lq:'',lc:'All',lmu:'',leq:'',lshow:60,lview:null,lid:null,lctx:null,lpq:'',view:'week',ws:monday(new Date()),sheet:null,draft:null,dirty:false,isNew:false,hx:'',openSid:null,itab:'text',uid:null,email:'',upd:null,emailOpen:false,ifolder:null,itext:'',ibusy:false,ictl:null,canShots:null,canSample:null,maxImg:5,rest:null,sync:'',ready:false,pending:false};
 let db=null,mode='loading',IDX=null;
 
@@ -394,6 +402,34 @@ function hydrate(){const imgs=document.querySelectorAll('img[data-m]:not([src])'
 const imgMO=new MutationObserver(()=>{if(!hyRaf)hyRaf=requestAnimationFrame(()=>{hyRaf=0;hydrate()})});
 imgMO.observe(document.body,{childList:true,subtree:true});
 const yt=n=>'https://www.youtube.com/results?search_query='+encodeURIComponent(n+' exercise proper form');
+/* your own YouTube videos, one per exercise name (or per library exercise), kept in cfg/videos */
+let VIDX=null;
+const vidMap=()=>{if(!VIDX){VIDX=new Map();((S.videos&&S.videos.list)||[]).forEach(v=>{if(v&&v.k&&v.url)VIDX.set(v.k,v)})}return VIDX};
+const vidKey=(name,libId)=>key(name)||(libId?'lib:'+libId:'');
+function vidFor(name,libId){const m=vidMap();return (key(name)&&m.get(key(name)))||(libId&&m.get('lib:'+libId))||null}
+function setVid(k,name,url){if(!k)return;const list=((S.videos&&S.videos.list)||[]).filter(v=>v&&v.k!==k);if(url)list.push({k,name:String(name||'').slice(0,80),url,upd:Date.now()});put('cfg','videos',{list})}
+function ytParse(u){
+ u=String(u||'').trim();if(!u)return null;
+ if(/^[\w-]{11}$/.test(u))return {id:u,t:0,tall:false};
+ let url;try{url=new URL(/^https?:\/\//i.test(u)?u:'https://'+u)}catch(e){return null}
+ const h=url.hostname.toLowerCase().replace(/^(www|m|music)\./,'');let id='';
+ if(h==='youtu.be')id=url.pathname.slice(1).split('/')[0];
+ else if(h==='youtube.com'||h==='youtube-nocookie.com'){if(url.pathname==='/watch')id=url.searchParams.get('v')||'';else{const m=url.pathname.match(/^\/(shorts|embed|live|v)\/([\w-]{11})/);if(m)id=m[2]}}
+ if(!/^[\w-]{11}$/.test(id))return null;
+ const t=url.searchParams.get('t')||url.searchParams.get('start')||'';let sec=0;
+ if(t){const m=t.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);if(m)sec=(+m[1]||0)*3600+(+m[2]||0)*60+(+m[3]||0)}
+ return {id,t:sec,tall:url.pathname.startsWith('/shorts/')};
+}
+const ytWatch=v=>v.tall?'https://www.youtube.com/shorts/'+v.id:'https://www.youtube.com/watch?v='+v.id+(v.t?'&t='+v.t+'s':'');
+function vidBlock(c,x){
+ const k=vidKey(c.name,x&&x.id),cur=vidFor(c.name,x&&x.id),y=cur&&ytParse(cur.url),label=c.name||(x&&x.n)||'this exercise';
+ if(y&&!U.vEdit)return `<div class="vid${y.tall?' tall':''}"><iframe src="https://www.youtube-nocookie.com/embed/${y.id}?rel=0&playsinline=1&modestbranding=1${y.t?'&start='+y.t:''}" title="${esc(label)} video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+<div class="row" style="margin-bottom:14px"><a class="btn" href="${ytWatch(y)}" target="_blank" rel="noopener">Open in YouTube</a><button class="btn" data-act="videdit">Change video</button><button class="btn danger" data-act="viddel">Remove video</button></div>`;
+ if(!k)return '<p class="hint">Give the exercise a name first, then you can add a video.</p>';
+ return `<div class="vidadd"><b>${cur?'Change your video':'Add your own video'}</b><p class="hint" style="margin:4px 0 8px">Find the video you like on YouTube, tap <b>Share</b>, then <b>Copy link</b>, and paste it here. It will play here every time you open this exercise.</p>
+<div class="row"><input id="vurl" type="url" inputmode="url" value="${esc(cur?cur.url:'')}" placeholder="Paste a YouTube link" aria-label="YouTube link" autocomplete="off"><button class="btn pri" data-act="vidsave">Save</button>${U.vEdit?'<button class="btn" data-act="vidcancel">Cancel</button>':''}</div>
+<p id="verr" class="istatus" role="status"></p><a href="${yt(label)}" target="_blank" rel="noopener">Search YouTube for “${esc(label)}”</a></div>`;
+}
 const EQN={'':'None','body only':'Bodyweight','e-z curl bar':'EZ bar','kettlebells':'Kettlebell','bands':'Band','foam roll':'Foam roller','exercise ball':'Exercise ball','medicine ball':'Medicine ball','cable':'Cable','machine':'Machine','barbell':'Barbell','dumbbell':'Dumbbell','other':'Other'};
 const capW=s=>String(s||'').replace(/\b\w/g,c=>c.toUpperCase());
 const CATS=['All','Strength','Stretching','Cardio','Plyometrics','Powerlifting','Olympic lifting','Strongman'];
@@ -424,14 +460,16 @@ function vExercises(){
 <div id="lres">${libResults()}</div><p class="src">Photos and instructions from Free Exercise DB (public domain). Tap any exercise for the full how-to and a link to video demos.</p>`;
 }
 function libDetail(x){
- const c=U.lctx||{where:'lib'};
- const act=c.where==='edit'?(c.auto||!c.linked?'<button class="btn" data-act="libuse">Use for this exercise</button>':''):c.where==='log'?(c.auto?'<button class="btn" data-act="libuse">This is the right one</button>':''):'<button class="btn" data-act="libadd">Add to a workout</button>';
- return `<div class="ov" data-act="libbg"><div class="sheet lib" role="dialog" aria-modal="true" aria-labelledby="lbh"><div class="sh"><h2 id="lbh">${esc(x.n)}</h2><button class="btn" data-act="libclose">Close</button></div><div class="sb">
-${c.auto?`<div class="note" style="margin-top:0"><span>Closest match for “${esc(c.name)}”.</span><button class="btn sm" data-act="libpick">Choose another</button></div>`:''}
+ const c=U.lctx||{where:'lib'},title=(c.where!=='lib'&&c.name)||(x&&x.n)||'How-to';
+ const act=!x?'':c.where==='edit'?(c.auto||!c.linked?'<button class="btn" data-act="libuse">Use these photos for this exercise</button>':''):c.where==='log'?(c.auto?'<button class="btn" data-act="libuse">This is the right one</button>':''):'<button class="btn" data-act="libadd">Add to a workout</button>';
+ const lib=x?`${c.auto?`<div class="note"><span>Photos: closest match in the library is “${esc(x.n)}”.</span><button class="btn sm" data-act="libpick">Choose another</button></div>`:''}
 ${x.m?`<div class="anim"><img data-m="${x.m}" alt="${esc(x.n)}, start and end position" width="420" height="280"></div>`:''}
-<div class="row"><a class="btn pri" href="${yt(x.n)}" target="_blank" rel="noopener">Watch video demos</a>${act}${c.where!=='lib'&&!c.auto?'<button class="btn" data-act="libpick">Change</button>':''}</div>
+${act||(c.where!=='lib'&&!c.auto)?`<div class="row">${act}${c.where!=='lib'&&!c.auto?'<button class="btn" data-act="libpick">Change photos</button>':''}</div>`:''}
 <dl class="facts"><div><dt>Type</dt><dd>${esc(x.c)}</dd></div><div><dt>Level</dt><dd>${esc(capW(x.lv)||'–')}</dd></div><div><dt>Equipment</dt><dd>${esc(EQN[x.eq]||capW(x.eq))}</dd></div><div><dt>Main muscles</dt><dd>${esc(capW(x.pm.join(', '))||'–')}</dd></div>${x.sm.length?`<div><dt>Also works</dt><dd>${esc(capW(x.sm.join(', ')))}</dd></div>`:''}</dl>
-<h3>How to do it</h3><ol class="steps">${x.in.map(s=>`<li>${esc(s)}</li>`).join('')}</ol><p class="src">Photos and instructions from Free Exercise DB (public domain). Videos open on YouTube.</p></div></div></div>`;
+<h3>How to do it</h3><ol class="steps">${x.in.map(s=>`<li>${esc(s)}</li>`).join('')}</ol><p class="src">Photos and instructions from Free Exercise DB (public domain).</p>`
+ :`<p class="hint">This exercise isn’t in the photo library.</p>${LIB.list?'<button class="btn" data-act="libpick">Find similar photos in the library</button>':''}`;
+ return `<div class="ov" data-act="libbg"><div class="sheet lib" role="dialog" aria-modal="true" aria-labelledby="lbh"><div class="sh"><h2 id="lbh">${esc(title)}</h2><button class="btn" data-act="libclose">Close</button></div><div class="sb">
+${vidBlock(c,x)}${lib}</div></div></div>`;
 }
 function libPicker(){
  const c=U.lctx||{},r=LIB.list?libFilter(U.lpq,'All','','').slice(0,40):[];
@@ -440,11 +478,12 @@ ${c.name?`<p class="hint">Pick the library exercise that matches “${esc(c.name
 <input id="lpq" type="search" value="${esc(U.lpq)}" placeholder="Search exercises" aria-label="Search exercises" autocomplete="off" style="margin-bottom:10px"><div id="lpres">${lpRows(r)}</div></div></div></div>`;
 }
 const lpRows=r=>!LIB.list?'<p class="empty">Loading the exercise library…</p>':r.length?r.map(x=>`<button class="prow" data-act="libchoose" data-id="${esc(x.id)}">${x.m?`<img data-m="${x.m}" alt="">`:''}<span><b>${esc(x.n)}</b><small>${esc(muscLine(x))} · ${esc(EQN[x.eq]||capW(x.eq))}</small></span></button>`).join(''):'<p class="empty">No matches. Try another word.</p>';
-function renderLib(){const el=$('#lib');if(!U.lview){el.innerHTML='';return}const x=U.lview==='detail'&&LIB.byId.get(U.lid);el.innerHTML=U.lview==='pick'?libPicker():x?libDetail(x):'';if(U.lview==='pick'){const q=$('#lpq');if(q)q.focus()}}
+function renderLib(){const el=$('#lib');if(!U.lview){el.innerHTML='';return}const x=(U.lid&&LIB.byId.get(U.lid))||null;el.innerHTML=U.lview==='pick'?libPicker():libDetail(x);if(U.lview==='pick'){const q=$('#lpq');if(q)q.focus()}}
+function refreshHow(){const c=U.lctx||{};if(c.where==='log'&&S.active&&S.active.ex[c.i])relog(c.i);else if(c.where==='edit'&&U.draft){const ex=U.draft.ex[c.i],b=document.querySelectorAll('#sheet .exb')[c.i],h=b&&b.querySelector('[data-act=howto]');if(ex&&h)h.outerHTML=howBtn('edit',c.i,ex)}}
 function openHowto(where,i){
  const src=where==='edit'?U.draft&&U.draft.ex[i]:S.active&&S.active.ex[i];if(!src)return;
  const m=libFor(src);U.lctx={where,i,name:src.name,auto:m?m.auto:false,linked:!!src.lib};
- if(m){U.lview='detail';U.lid=m.x.id}else{U.lview='pick';U.lpq=src.name||''}
+ U.vEdit=false;U.lview='detail';U.lid=m?m.x.id:null;U.lpq=src.name||'';
  renderLib();
 }
 function exFromLib(x){const e=newEx();e.name=x.n;e.lib=x.id;
@@ -467,7 +506,7 @@ function lsSave(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
 function lsLoad(){try{return JSON.parse(localStorage.getItem(LS)||'null')}catch(e){return null}}
 let pend=0,syncErr=false;
 function put(col,id,data){
- if(col==='cfg'){if(id==='main')S.cfg=data}else{if(data)S[col][id]=data;else delete S[col][id]}
+ if(col==='cfg'){if(id==='main')S.cfg=data;else if(id==='videos'){S.videos=data;VIDX=null}}else{if(data)S[col][id]=data;else delete S[col][id]}
  if(col==='sessions')IDX=null;
  if(!db)return;
  let ref;try{ref=db.doc(col+'/'+id)}catch(e){toast('Couldn’t save that change.');return}
@@ -494,6 +533,7 @@ function subscribe(){
  const got=(k,snap)=>{st[k]=Math.max(st[k],snap.metadata&&snap.metadata.fromCache?1:2);if(st.cfg&&st.workouts&&st.plan)U.ready=true;if(Object.values(st).every(v=>v===2)){clearTimeout(timer);if(U.sync==='slow'||!U.sync)setSync('saved')}render()};
  const err=k=>()=>{st[k]=2;U.ready=true;setSync('slow');render()};
  unsubs.push(db.doc('cfg/main').onSnapshot(s=>{S.cfg=s.exists?s.data():null;got('cfg',s)},err('cfg')));
+ unsubs.push(db.doc('cfg/videos').onSnapshot(s=>{S.videos=s.exists?s.data():null;VIDX=null;if(U.ready)render()},()=>{}));
  unsubs.push(db.collection('workouts').onSnapshot(s=>{const o={};s.docs.forEach(d=>{if(d.exists)o[d.id]=Object.assign({},d.data(),{id:d.id})});S.workouts=o;got('workouts',s);warmMedia()},err('workouts')));
  unsubs.push(db.collection('plan').onSnapshot(s=>{const o={};s.docs.forEach(d=>{if(d.exists)o[d.id]=d.data()});S.plan=o;got('plan',s)},err('plan')));
  unsubs.push(db.collection('sessions').orderBy('start','desc').limit(1000).onSnapshot(s=>{const o={};s.docs.forEach(d=>{if(d.exists)o[d.id]=Object.assign({},d.data(),{id:d.id})});S.sessions=o;IDX=null;got('sessions',s)},err('sessions')));
@@ -638,8 +678,8 @@ function openEditor(wid,o){
 async function delWorkout(wid){const w=S.workouts[wid];if(!w)return;const r=await ask('Delete “'+w.name+'”?','<p>It will also come off your schedule. Workouts you already logged stay in History.</p>',[['cancel','Cancel'],['ok','Delete','danger pri']]);if(r.k!=='ok')return;put('workouts',wid,null);dropFromPlan(new Set([wid]));render();toast('Deleted “'+w.name+'”')}
 function removeExamples(){const ids=new Set(Object.values(S.workouts).filter(w=>w.example).map(w=>w.id));ids.forEach(id=>put('workouts',id,null));dropFromPlan(ids);render();toast('Examples removed')}
 function howBtn(where,i,e){
- if(!LIB.list)return '';const m=libFor(e);
- return m&&m.x.m?`<button class="thumb" data-act="howto" data-w="${where}" data-i="${i}" aria-label="How to do ${esc(e.name||m.x.n)}" title="How to"><img data-m="${m.x.m}" alt=""></button>`:`<button class="btn howto" data-act="howto" data-w="${where}" data-i="${i}">How-to</button>`;
+ const m=LIB.list?libFor(e):null,v=vidFor(e.name,m&&m.x.id);
+ return m&&m.x.m?`<button class="thumb${v?' hasvid':''}" data-act="howto" data-w="${where}" data-i="${i}" aria-label="How to do ${esc(e.name||m.x.n)}${v?', with your video':''}" title="How to"><img data-m="${m.x.m}" alt=""></button>`:`<button class="btn howto" data-act="howto" data-w="${where}" data-i="${i}">${v?'▶ How-to':'How-to'}</button>`;
 }
 function exEdit(e,i,lab,n){
  const cols=COLS[e.type]||COLS.wr;
@@ -801,6 +841,7 @@ async function restore(){
  const r=await ask('Restore backup?',`<p>${pl(Object.keys(o.workouts||{}).length,'workout')} and ${pl(Object.keys(o.sessions||{}).length,'logged workout')}, plus your schedule and folders, will be added. Items with the same id are replaced; nothing else is deleted.</p>`,[['cancel','Cancel'],['ok','Restore','pri']]);
  if(r.k!=='ok')return;
  const jobs=[];if(o.cfg&&Array.isArray(o.cfg.folders))jobs.push(['cfg','main',o.cfg]);
+ if(o.videos&&Array.isArray(o.videos.list)){const have=new Set(((S.videos&&S.videos.list)||[]).map(v=>v.k)),add=o.videos.list.filter(v=>v&&v.k&&!have.has(v.k));if(add.length)jobs.push(['cfg','videos',{list:((S.videos&&S.videos.list)||[]).concat(add)}])}
  for(const c of ['workouts','plan','sessions'])for(const [id,v] of Object.entries(o[c]||{}))if(v&&typeof v==='object'&&/^[\w.~:@+-]+$/.test(id))jobs.push([c,id,v]);
  toast('Restoring…');for(const [c,id,v] of jobs){put(c,id,v);if(db)await waitIdle(c+'/'+id)}
  toast('Backup restored');render();
@@ -854,14 +895,22 @@ const ACT={
  closeimp:()=>{if(U.ictl)U.ictl.abort();U.sheet=null;renderSheet()},
  lcat:d=>{U.lc=d.c;U.lshow=60;document.querySelectorAll('.chips [data-act=lcat]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.c===d.c)));$('#lres').innerHTML=libResults()},
  lmore:()=>{U.lshow+=60;$('#lres').innerHTML=libResults()},
- libopen:d=>{U.lctx={where:'lib'};U.lview='detail';U.lid=d.id;renderLib()},
+ libopen:d=>{U.lctx={where:'lib'};U.vEdit=false;U.lview='detail';U.lid=d.id;renderLib()},
  howto:d=>openHowto(d.w,+d.i),
  addlib:()=>{U.lctx={where:'editadd'};U.lview='pick';U.lpq='';renderLib()},
  libpick:()=>{U.lview='pick';U.lpq=(U.lctx&&U.lctx.name)||'';renderLib()},
  libchoose:d=>{const x=LIB.byId.get(d.id);if(!x)return;const c=U.lctx||{};if(c.where==='lib'||!c.where){U.lview='detail';U.lid=x.id;renderLib()}else linkLib(x)},
  libuse:()=>{const x=LIB.byId.get(U.lid);if(x)linkLib(x)},
  libadd:async()=>{const x=LIB.byId.get(U.lid);if(!x)return;if(!Object.keys(S.workouts).length){toast('Create a workout first');return}const r=await ask('Add “'+x.n+'” to…',pickList(),[['cancel','Cancel']]);if(!r.k.startsWith('w:'))return;const w=S.workouts[r.k.slice(2)];if(!w)return;const n=clone(w);n.ex=(n.ex||[]).concat([exFromLib(x)]);n.ex.forEach((e,i)=>{if(i===n.ex.length-1)e.ss=false});n.updated=Date.now();put('workouts',n.id,n);toast('Added to “'+w.name+'”')},
- libclose:()=>{U.lview=null;U.lctx=null;renderLib()},
+ libclose:()=>{U.lview=null;U.lctx=null;U.vEdit=false;renderLib()},
+ vidsave:()=>{const c=U.lctx||{},x=(U.lid&&LIB.byId.get(U.lid))||null,inp=$('#vurl'),y=ytParse(inp&&inp.value),er=$('#verr');
+  if(!y){if(er)er.textContent='That doesn’t look like a YouTube link. In YouTube, tap Share, then Copy link, and paste it here.';if(inp)inp.focus();return}
+  const k=c.where==='lib'?(x?'lib:'+x.id:''):vidKey(c.name,x&&x.id);if(!k)return;
+  setVid(k,c.where==='lib'?(x&&x.n):c.name,ytWatch(y));U.vEdit=false;renderLib();refreshHow();toast('Video saved')},
+ videdit:()=>{U.vEdit=true;renderLib();const i=$('#vurl');if(i)i.focus()},
+ vidcancel:()=>{U.vEdit=false;renderLib()},
+ viddel:async()=>{const c=U.lctx||{},x=(U.lid&&LIB.byId.get(U.lid))||null;const r=await ask('Remove this video?','<p>The exercise keeps its photos and steps. You can add a different video any time.</p>',[['cancel','Cancel'],['ok','Remove','danger pri']]);if(r.k!=='ok')return;
+  const m=vidMap(),k=c.where==='lib'?(x?'lib:'+x.id:''):(key(c.name)&&m.has(key(c.name))?key(c.name):(x?'lib:'+x.id:''));setVid(k,'',null);U.vEdit=false;renderLib();refreshHow();toast('Video removed')},
  libbg:(d,b,e)=>{if(e.target===b)ACT.libclose()},
  gsign:googleSignIn,
  esign:()=>emailAuth('in'),
@@ -881,12 +930,13 @@ $('#sheet').addEventListener('change',e=>{const t=e.target;if(U.sheet==='edit'&&
  if(U.sheet==='edit'&&t.dataset.f==='name'&&t.dataset.s===undefined){const i=+t.dataset.i,ex=U.draft&&U.draft.ex[i],b=t.closest('.exh')&&t.closest('.exh').querySelector('[data-act=howto]');if(ex&&b)b.outerHTML=howBtn('edit',i,ex)}if(U.sheet==='import'&&t.id==='i-folder')U.ifolder=t.value;if(U.sheet==='import'&&t.id==='i-files'){const th=$('#thumbs');if(th)th.innerHTML=[...t.files].slice(0,U.maxImg).map(f=>`<img src="${URL.createObjectURL(f)}" alt="">`).join('');if(t.files.length>U.maxImg)istatus('Only the first '+U.maxImg+' will be read.')}});
 $('#view').addEventListener('change',e=>{const t=e.target;if(t.id==='bkf'&&t.files&&t.files[0]){t.files[0].text().then(x=>{const b=$('#bk');if(b){b.value=x;restore()}});t.value='';return}if(t.id==='lmu'||t.id==='leq'){U[t.id]=t.value;U.lshow=60;$('#lres').innerHTML=libResults();return}if(!t.dataset.fid)return;const c=clone(C()),f=c.folders.find(x=>x.id===t.dataset.fid);if(!f)return;if(t.dataset.ff==='name'){const v=t.value.trim();if(!v){t.value=f.name;return}f.name=v.slice(0,40)}else f.color=t.value;put('cfg','main',c);render()});
 $('#view').addEventListener('input',e=>{if(e.target.id==='hx'){U.hx=e.target.value;$('#hxout').innerHTML=progHtml(U.hx)}if(e.target.id==='lq'){U.lq=e.target.value;U.lshow=60;$('#lres').innerHTML=libResults()}});
+$('#lib').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='vurl'){e.preventDefault();ACT.vidsave()}});
 $('#lib').addEventListener('input',e=>{if(e.target.id==='lpq'){U.lpq=e.target.value;$('#lpres').innerHTML=lpRows(LIB.list?libFilter(U.lpq,'All','','').slice(0,40):[])}});
 $('#view').addEventListener('toggle',e=>{const t=e.target;if(t.matches&&t.matches('details.sess')){const id=t.id.slice(2);if(t.open)U.openSid=id;else if(U.openSid===id)U.openSid=null}},true);
 window.addEventListener('hashchange',()=>{readHash();render()});
 setInterval(()=>{if(U.sheet==='log'&&S.active){const el=$('#elapsed');if(el)el.textContent=fmtDur(Date.now()-S.active.start);updateRest()}},500);
 
-const APPV='2026-11-24.3';
+const APPV='2026-11-25.1';
 let auth=null,fs=null,unsubs=[];
 function fbDb(fsx,uid){
  const F=window.FB,base='users/'+uid+'/';
@@ -895,7 +945,7 @@ function fbDb(fsx,uid){
   onSnapshot:(next,err)=>F.onSnapshot(F.query(F.collection(fsx,base+p),...cons),{includeMetadataChanges:true},x=>next({docs:x.docs.map(wrap),metadata:x.metadata}),err)});
  return {doc:p=>{const r=F.doc(fsx,base+p);return {get:async()=>wrap(await F.getDoc(r)),set:d=>F.setDoc(r,d),delete:()=>F.deleteDoc(r),onSnapshot:(next,err)=>F.onSnapshot(r,{includeMetadataChanges:true},x=>next(wrap(x)),err)}},collection:p=>mkq(p,[])};
 }
-const backupText=()=>JSON.stringify({app:'training-planner',v:1,cfg:C(),workouts:S.workouts,plan:S.plan,sessions:S.sessions});
+const backupText=()=>JSON.stringify({app:'training-planner',v:1,cfg:C(),videos:S.videos||{list:[]},workouts:S.workouts,plan:S.plan,sessions:S.sessions});
 function signInView(){return `<section class="signin"><h2>Sign in to your training</h2><p class="hint">Your workouts sync between your phone and your laptop. Use the same sign-in on every device.</p>
 <button class="btn pri wide" data-act="gsign">Continue with Google</button>
 <details${U.emailOpen?' open':''}><summary>Use email and password instead</summary>
@@ -947,7 +997,7 @@ function start(){
  catch(e){fs=FB.initializeFirestore(app,{ignoreUndefinedProperties:true})}
  FB.onAuthStateChanged(auth,user=>{
   if(user){if(U.uid===user.uid)return;U.uid=user.uid;U.email=user.email||'';db=fbDb(fs,user.uid);mode='cloud';U.ready=false;render();subscribe();loadActive()}
-  else{unsubs.forEach(f=>{try{f()}catch(e){}});unsubs=[];db=null;U.uid=null;U.email='';mode='out';S.cfg=null;S.workouts={};S.plan={};S.sessions={};S.active=null;IDX=null;U.sheet=null;renderSheet();U.ready=true;render()}
+  else{unsubs.forEach(f=>{try{f()}catch(e){}});unsubs=[];db=null;U.uid=null;U.email='';mode='out';S.cfg=null;S.videos=null;VIDX=null;S.workouts={};S.plan={};S.sessions={};S.active=null;IDX=null;U.sheet=null;renderSheet();U.ready=true;render()}
  });
 }
 start();
