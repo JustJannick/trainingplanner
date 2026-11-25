@@ -281,7 +281,8 @@ body.out .top{padding-bottom:18px}
 :root{--c-str:light-dark(#2a78d6,#3987e5);--c-end:light-dark(#eb6834,#d95926);--c-mob:light-dark(#1baf7a,#199e70);--c-sta:light-dark(#eda100,#c98500)}
 .goals{margin-top:14px;padding:16px 20px 18px;border:1px solid var(--line);border-radius:18px;background:var(--card)}
 .goals .gh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
-.goals h2{font:800 24px/1.1 var(--disp);margin-right:auto}
+.goals h2{font:800 24px/1.1 var(--disp)}
+.goals .gsub{color:var(--mute);font-size:14px;white-space:nowrap;margin-right:auto}
 .goals .gh a{font-size:15px;font-weight:600;color:var(--pri);text-decoration:none}
 .rings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .ring{text-align:center;min-width:0}
@@ -448,7 +449,7 @@ function ringSvg(cat,f,big,small){
  return `<svg viewBox="0 0 100 100" role="img" aria-label="${esc(CATN[cat])}: ${esc(big)} ${esc(small)}"><circle cx="50" cy="50" r="${r}" fill="none" stroke="var(--zone)" stroke-width="10"/>${a>0?`<circle cx="50" cy="50" r="${r}" fill="none" stroke="var(--c-${cat})" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(L*a).toFixed(1)} ${L.toFixed(1)}" transform="rotate(-90 50 50)"/>`:''}<text class="rv" x="50" y="57" text-anchor="middle">${esc(big)}</text>${small?`<text class="ru" x="50" y="73" text-anchor="middle">${esc(small)}</text>`:''}</svg>`;
 }
 function goalsBox(){
- const ws=U.ws,we=addD(ws,6),a=ds(ws),b=ds(we),list=sessList().filter(x=>x.date>=a&&x.date<=b),gs=goals(),thisWeek=a===ds(monday(new Date()));
+ const we=new Date(),ws=addD(we,-6),a=ds(ws),b=ds(we),list=sessList().filter(x=>x.date>=a&&x.date<=b),gs=goals();
  const rings=CAT4.map(([k,n])=>{
   const mine=gs.filter(g=>g.cat===k&&+g.n>0);
   if(!mine.length)return `<div class="ring">${ringSvg(k,0,'–','no goal')}<b><i style="background:var(--c-${k})"></i>${n}</b><small>No goal set</small></div>`;
@@ -460,8 +461,8 @@ function goalsBox(){
   const lines=mine.map((g,i)=>`${esc(g.name)}: ${fmtN(done[i])} of ${fmtN(+g.n)}${g.kind==='d'?' '+du():''}`).join('<br>');
   return `<div class="ring">${ringSvg(k,frac,big,small)}<b><i style="background:var(--c-${k})"></i>${n}</b><small>${lines}</small></div>`;
  }).join('');
- const title=thisWeek?'This week’s goals':'Goals, '+fmtD(ws,{month:'short',day:'numeric'})+' – '+fmtD(we,{month:'short',day:'numeric'});
- return `<section class="goals" aria-label="Weekly goals"><div class="gh"><h2>${title}</h2><a href="#setup" data-act="editgoals">Edit goals</a></div><div class="rings">${rings}</div></section>`;
+ const range=fmtD(ws,{month:'short',day:'numeric'})+' – '+fmtD(we,{month:'short',day:'numeric'});
+ return `<section class="goals" aria-label="Weekly goals"><div class="gh"><h2>Weekly Goals</h2><span class="gsub">Last 7 days · ${range}</span><a href="#setup" data-act="editgoals">Edit goals</a></div><div class="rings">${rings}</div></section>`;
 }
 function mixBox(){
  const fm=focusMap(),cur=monday(new Date()),weeks=[];
@@ -1084,7 +1085,7 @@ $('#view').addEventListener('toggle',e=>{const t=e.target;if(t.matches&&t.matche
 window.addEventListener('hashchange',()=>{readHash();render()});
 setInterval(()=>{if(!S.active)return;if(U.sheet==='log'){const el=$('#elapsed');if(el)el.textContent=fmtDur(Date.now()-S.active.start)}updateTimers()},250);
 
-const APPV='2026-11-25.3';
+const APPV='2026-11-25.4';
 let auth=null,fs=null,unsubs=[];
 function fbDb(fsx,uid){
  const F=window.FB,base='users/'+uid+'/';
