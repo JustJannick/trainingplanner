@@ -440,7 +440,7 @@ const setSec=(x,type)=>x.t>0?x.t:type==='d'?(x.d||0)*(du()==='mi'?580:360):40;
 const DEF_GOALS=[{id:'g1',cat:'sta',kind:'w',name:'Core Stability & Anti-Rotation Strength',n:2},{id:'g2',cat:'mob',kind:'w',name:'Lower Body Mobility & Stretch Flow',n:2},{id:'g3',cat:'str',kind:'w',name:'Static Exercises',n:2},{id:'g4',cat:'end',kind:'d',name:'Outdoor Run',n:10}];
 const goals=()=>Array.isArray(C().goals)?C().goals:DEF_GOALS;
 function goalDone(g,list){
- if(g.kind==='d'){let d=0;list.forEach(x=>(x.ex||[]).forEach(e=>{if(key(e.name)===key(g.name))(e.sets||[]).forEach(t=>d+=+t.d||0)}));return Math.round(d*10)/10}
+ if(g.kind==='d'){let d=0;const k=key(g.name);list.forEach(x=>{const wm=key(x.name)===k;(x.ex||[]).forEach(e=>{if(key(e.name)===k||(wm&&e.type==='d'))(e.sets||[]).forEach(t=>d+=+t.d||0)})});return Math.round(d*10)/10}
  return list.filter(x=>(g.wid&&x.wid===g.wid)||key(x.name)===key(g.name)).length;
 }
 const fmtN=v=>String(Math.round(v*10)/10);
@@ -658,7 +658,7 @@ function todayCard(today,doneToday){
  const rows=planItems(today).map(it=>{const w=S.workouts[it.wid];if(!w)return '';const s=doneToday.find(x=>x.wid===it.wid&&!used.has(x.id));if(s)used.add(s.id);const f=folderOf(w.folder);
   return `<div class="titem"><i class="plate big" style="--p:${plateC(f.color)}"></i><div class="tx"><b>${esc(w.name)}</b><small>${esc(f.name)} · ${wMeta(w)}</small></div>${s?`<span class="donebadge">${CHECK} Done</span>`:`<button class="btn pri" data-act="start" data-wid="${esc(w.id)}">Start</button>`}</div>`}).join('');
  const extra=doneToday.filter(s=>!used.has(s.id)).map(s=>`<div class="titem"><i class="plate big" style="--p:${plateC(folderOf(s.folder).color)}"></i><div class="tx"><b>${esc(s.name)}</b><small>${sessMeta(s)}</small></div><span class="donebadge">${CHECK} Done</span></div>`).join('');
- const act=S.active?`<div class="titem"><i class="plate big" style="--p:var(--red)"></i><div class="tx"><b>${esc(S.active.name)}</b><small>In progress, started ${new Date(S.active.start).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</small></div><button class="btn pri" data-act="resume">Resume</button></div>`:'';
+ const act=S.active?`<div class="titem"><i class="plate big" style="--p:var(--red)"></i><div class="tx"><b>${esc(S.active.name)}</b><small>${S.active.back?'Logging for '+esc(fmtD(pd(S.active.date),{weekday:'long',month:'short',day:'numeric'})):'In progress, started '+new Date(S.active.start).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</small></div><button class="btn pri" data-act="resume">Resume</button></div>`:'';
  const empty=!rows&&!extra&&!act?'<p class="restday">Nothing planned today.</p>':'';
  return `<section class="today" aria-label="Today"><div class="tdate"><span class="tnum">${d.getDate()}</span><span class="tday">Today<small>${fmtD(d,{weekday:'long'})}, ${fmtD(d,{month:'long',year:'numeric'})}</small></span></div><div class="tbody">${act}${rows}${extra}${empty}<div class="tacts"><button class="btn" data-act="addplan" data-date="${today}">+ Plan a workout today</button>${Object.keys(S.workouts).length?'':'<button class="btn pri" data-act="import">Import from Trainerize</button>'}</div></div></section>`;
 }
@@ -703,14 +703,14 @@ function progHtml(n){
 }
 function sessItem(s){
  const d=pd(s.date),f=folderOf(s.folder);
- return `<details class="sess" id="s-${esc(s.id)}"${U.openSid===s.id?' open':''}><summary><span class="sd">${d.getDate()}<small>${fmtD(d,{weekday:'short'})}</small></span><span class="st"><b><i class="plate sm" style="--p:${plateC(f.color)}"></i>${esc(s.name)}</b><small>${sessMeta(s)}</small></span><span class="chev" aria-hidden="true">›</span></summary><div class="sbody">${(s.ex||[]).map(e=>`<div class="sx"><b>${esc(e.name)}</b><span>${(e.sets||[]).map(x=>esc(setTxt(x,e.type))).join(' · ')}</span></div>`).join('')}${s.note?`<p class="snote">${esc(s.note)}</p>`:''}<button class="btn sm danger" data-act="delsess" data-sid="${esc(s.id)}">Delete this entry</button></div></details>`;
+ return `<details class="sess" id="s-${esc(s.id)}"${U.openSid===s.id?' open':''}><summary><span class="sd">${d.getDate()}<small>${fmtD(d,{weekday:'short'})}</small></span><span class="st"><b><i class="plate sm" style="--p:${plateC(f.color)}"></i>${esc(s.name)}</b><small>${sessMeta(s)}</small></span><span class="chev" aria-hidden="true">›</span></summary><div class="sbody">${(s.ex||[]).map(e=>`<div class="sx"><b>${esc(e.name)}</b><span>${(e.sets||[]).map(x=>esc(setTxt(x,e.type))).join(' · ')}</span></div>`).join('')}${s.note?`<p class="snote">${esc(s.note)}</p>`:''}<div class="row"><button class="btn sm" data-act="sessdate" data-sid="${esc(s.id)}">Change date</button><button class="btn sm danger" data-act="delsess" data-sid="${esc(s.id)}">Delete this entry</button></div></div></details>`;
 }
 function vHistory(){
  const ss=sessList(),now=new Date(),wk0=ds(monday(now)),m30=ds(addD(now,-29));
  const wk=ss.filter(s=>s.date>=wk0),mo=ss.filter(s=>s.date>=m30),vol=wk.reduce((t,s)=>t+sVol(s),0);
  let cur='',list='';
  for(const s of ss){const m=fmtD(pd(s.date),{month:'long',year:'numeric'});if(m!==cur){cur=m;list+=`<h4 class="mon">${m}</h4>`}list+=sessItem(s)}
- return `<div class="bar"><h2>History</h2></div>${ss.length?`<div class="stats"><div><b>${wk.length}</b><span>this week</span></div><div><b>${mo.length}</b><span>last 30 days</span></div><div><b>${vol.toLocaleString('en-US')}</b><span>${unit()} lifted this week</span></div><div><b>${ss.length}</b><span>logged in total</span></div></div>`:''}
+ return `<div class="bar"><h2>History</h2>${Object.keys(S.workouts).length?'<button class="btn" data-act="logpast">+ Log a past workout</button>':''}</div>${ss.length?`<div class="stats"><div><b>${wk.length}</b><span>this week</span></div><div><b>${mo.length}</b><span>last 30 days</span></div><div><b>${vol.toLocaleString('en-US')}</b><span>${unit()} lifted this week</span></div><div><b>${ss.length}</b><span>logged in total</span></div></div>`:''}
 <div class="hist"><section class="logs"><h3>Logged workouts</h3>${ss.length?list:'<p class="empty">Nothing logged yet. Start a workout from the Week or Workouts tab and every set you tick will be saved here.</p>'}</section>
 <div class="hcol">${mixBox()}<section class="prog"><h3>Exercise progress</h3><label class="fl" for="hx">Exercise<input id="hx" list="exnames" value="${esc(U.hx)}" placeholder="Start typing, e.g. bench press" autocomplete="off"></label><div id="hxout">${progHtml(U.hx)}</div></section></div></div>`;
 }
@@ -767,10 +767,15 @@ async function pickWorkout(date){
 async function planMenu(date,iid){
  const it=planItems(date).find(x=>x.id===iid);if(!it)return;const w=S.workouts[it.wid],d=pd(date);
  const body=`<p class="hint">${fmtD(d,{weekday:'long',month:'long',day:'numeric'})}${w?' · '+esc(folderOf(w.folder).name):''}</p>`+(w?`<ol class="exl">${(w.ex||[]).map((e,i)=>`<li><span><em>${labels(w.ex)[i]}</em>${esc(e.name)}</span><b>${esc(exSum(e))}</b></li>`).join('')}</ol>`:'<p>This workout was deleted.</p>');
- const r=await ask(w?w.name:'Deleted workout',body,w?[['remove','Remove from day','danger'],['move','Move'],['edit','Edit'],['start','Start now','pri']]:[['cancel','Close'],['remove','Remove','danger']]);
+ const today=ds(new Date()),past=date<today,logged=Object.values(S.sessions).some(s=>s.date===date&&s.wid===it.wid);
+ const btns=[['remove','Remove from day','danger'],['move','Move'],['edit','Edit']];
+ if(date<=today&&!logged)btns.push(['log','Log as done',past?'pri':'']);
+ if(!past)btns.push(['start','Start now','pri']);
+ const r=await ask(w?w.name:'Deleted workout',body+(w&&logged?'<p class="hint">Logged as done ✓</p>':''),w?btns:[['cancel','Close'],['remove','Remove','danger']]);
  if(r.k==='remove'){removePlan(date,iid);toast('Removed from '+fmtD(d,{weekday:'long'}))}
  else if(r.k==='edit')openEditor(it.wid,{});
  else if(r.k==='start')startWorkout(it.wid);
+ else if(r.k==='log')logPast(it.wid,date);
  else if(r.k==='move'){const m=await ask('Move “'+w.name+'”',`<label class="fl">New day<input type="date" id="mdate" value="${date}"></label>`,[['cancel','Cancel'],['ok','Move','pri']]);
   const nd=m.v.mdate;if(m.k==='ok'&&/^\d{4}-\d{2}-\d{2}$/.test(nd||'')&&nd!==date){removePlan(date,iid);addPlan(nd,it.wid);toast('Moved to '+fmtD(pd(nd),{weekday:'long',month:'short',day:'numeric'}))}}
 }
@@ -831,6 +836,23 @@ async function startWorkout(wid){
  setActive({id:uid(),wid,name:w.name,folder:w.folder||'',date:ds(new Date()),start:Date.now(),note:'',ex:(w.ex||[]).map(mkLogEx)});
  openLogger();
 }
+/* log a workout you did on an earlier day (or today without the timer): all sets start ticked */
+async function logPast(wid,date){
+ const w=S.workouts[wid];if(!w)return;
+ if(S.active){const r=await ask('Workout in progress',`<p>You haven’t finished “${esc(S.active.name)}” yet.</p>`,[['resume','Resume it'],['new','Discard it, log this one','danger']]);if(r.k==='resume'){openLogger();return}if(r.k!=='new')return}
+ U.rest=null;U.cd=null;cancelBeep();
+ const ex=(w.ex||[]).map(mkLogEx);ex.forEach(e=>e.sets.forEach(x=>{x.done=true}));
+ setActive({id:uid(),wid,name:w.name,folder:w.folder||'',date,start:Date.now(),back:true,note:'',ex});
+ openLogger();
+}
+async function pickPast(){
+ if(!Object.keys(S.workouts).length){toast('Build or import a workout first');return}
+ const today=ds(new Date()),y=ds(addD(new Date(),-1));
+ const r=await ask('Log a past workout',`<label class="fl">Day<input type="date" id="ldate" value="${y}" max="${today}"></label>`+pickList(),[['cancel','Cancel']]);
+ const nd=r.v.ldate;if(!r.k.startsWith('w:'))return;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(nd||'')||nd>today){toast('Pick a day up to today');return}
+ logPast(r.k.slice(2),nd);
+}
 function openLogger(){if(!S.active)return;U.sheet='log';renderSheet();render();wakeOn()}
 function logCard(e,i,lab,n){
  const cols=COLS[e.type]||COLS.wr;
@@ -847,7 +869,7 @@ function tCell(e,i,j,s){
 const counts=A=>{let d=0,t=0;A.ex.forEach(e=>e.sets.forEach(s=>{t++;if(s.done)d++}));return [d,t]};
 function sheetLog(){
  const A=S.active,[d,t]=counts(A),lab=labels(A.ex);
- return `<div class="ov"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="lh"><div class="sh"><div class="lt"><h2 id="lh">${esc(A.name)}</h2><small><span id="elapsed">${fmtDur(Date.now()-A.start)}</span> · <span id="lprog">${d} of ${t} sets</span></small></div><button class="btn" data-act="minimize">Hide</button><button class="btn pri" data-act="finish">Finish</button></div>
+ return `<div class="ov"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="lh"><div class="sh"><div class="lt"><h2 id="lh">${esc(A.name)}</h2><small>${A.back?`For ${esc(fmtD(pd(A.date),{weekday:'long',month:'short',day:'numeric'}))}`:`<span id="elapsed">${fmtDur(Date.now()-A.start)}</span>`} · <span id="lprog">${d} of ${t} sets</span></small></div><button class="btn" data-act="minimize">Hide</button><button class="btn pri" data-act="finish">Finish</button></div>
 <div class="sb">${A.ex.map((e,i)=>logCard(e,i,lab[i],A.ex.length)).join('')}<button class="btn wide" data-act="laddex">+ Add exercise</button><label class="fl">Notes<textarea id="l-note" rows="2" placeholder="How did it feel? Anything to change next time?">${esc(A.note)}</textarea></label><button class="btn danger" data-act="discard">Discard this workout</button></div>
 <div class="restbar cdbar" id="cdbar" hidden><span id="cdl">Set</span><b id="cdt">0:00</b><button class="btn" data-act="cdstop">Stop</button></div>
 <div class="restbar" id="restbar" hidden><span>Rest</span><b id="rt">0:00</b><button class="btn" data-act="restadd">+15 s</button><button class="btn" data-act="restskip">Skip</button></div></div></div>`;
@@ -886,9 +908,11 @@ async function finish(){
  const A=S.active;if(!A)return;const[d,t]=counts(A);
  if(!d){const r=await ask('No sets ticked yet','<p>Tick each set as you finish it. If you didn’t train, you can discard this workout.</p>',[['discard','Discard workout','danger'],['back','Keep going','pri']]);if(r.k==='discard')endActive();return}
  const tpl=A.wid&&S.workouts[A.wid];
- const r=await ask('Finish workout?',`<p>${d} of ${t} sets done in ${mins(Date.now()-A.start)}.</p>${tpl?`<label class="chk"><input type="checkbox" id="updtpl"> Make today’s weights and reps the new targets for “${esc(tpl.name)}”</label>`:''}`,[['back','Keep going'],['save','Save workout','pri']]);
+ const back=!!A.back;let st=A.start,en=Date.now();
+ if(back){const est=A.ex.reduce((a,e)=>a+e.sets.filter(x=>x.done).reduce((b,x)=>b+setSec(x,e.type)+(+e.rest||0),0),0);st=pd(A.date).getTime()+12*3600e3;en=st+Math.max(60,Math.round(est))*1000}
+ const r=await ask(back?'Save this workout?':'Finish workout?',`<p>${back?`${d} of ${t} sets, logged for ${esc(fmtD(pd(A.date),{weekday:'long',month:'long',day:'numeric'}))}.`:`${d} of ${t} sets done in ${mins(Date.now()-A.start)}.`}</p>${tpl?`<label class="chk"><input type="checkbox" id="updtpl"> Make ${back?'these':'today’s'} weights and reps the new targets for “${esc(tpl.name)}”</label>`:''}`,[['back',back?'Back':'Keep going'],['save','Save workout','pri']]);
  if(r.k!=='save')return;
- const s={id:A.id,wid:A.wid||'',name:A.name,folder:A.folder||'',date:A.date,start:A.start,end:Date.now(),note:A.note||'',ex:A.ex.map(e=>({name:e.name,type:e.type,focus:e.focus||'',lib:e.lib||'',sets:e.sets.filter(x=>x.done).map(x=>({w:x.w||0,r:x.r||0,t:x.t||0,d:x.d||0}))})).filter(e=>e.sets.length)};
+ const s={id:A.id,wid:A.wid||'',name:A.name,folder:A.folder||'',date:A.date,start:st,end:en,note:A.note||'',ex:A.ex.map(e=>({name:e.name,type:e.type,focus:e.focus||'',lib:e.lib||'',sets:e.sets.filter(x=>x.done).map(x=>({w:x.w||0,r:x.r||0,t:x.t||0,d:x.d||0}))})).filter(e=>e.sets.length)};
  put('sessions',s.id,s);
  if(tpl&&r.v.updtpl){const n=clone(tpl);n.ex=A.ex.map((e,i)=>({id:uid(),name:e.name,lib:e.lib||'',focus:e.focus||'',type:e.type,rest:e.rest||0,note:e.note||'',ss:!!e.ss&&i<A.ex.length-1,sets:e.sets.map(x=>({w:x.w||0,r:x.r||0,t:x.t||0,d:x.d||0}))}));n.updated=Date.now();delete n.example;put('workouts',n.id,n)}
  endActive();const v=sVol(s);toast('Saved: '+pl(d,'set')+(v?' · '+v.toLocaleString('en-US')+' '+unit():''));
@@ -1005,6 +1029,9 @@ const ACT={
  delw:d=>delWorkout(d.wid),
  rmex:removeExamples,
  import:openImport,
+ sessdate:async d=>{const s=S.sessions[d.sid];if(!s)return;const r=await ask('Change date',`<p>“${esc(s.name)}”</p><label class="fl">Date<input type="date" id="sdate" value="${esc(s.date)}" max="${ds(new Date())}"></label>`,[['cancel','Cancel'],['ok','Save','pri']]);const nd=r.v.sdate;
+  if(r.k==='ok'&&/^\d{4}-\d{2}-\d{2}$/.test(nd||'')&&nd!==s.date){const off=pd(nd).getTime()-pd(s.date).getTime();put('sessions',s.id,{...s,date:nd,start:(s.start||0)+off,end:s.end?s.end+off:s.end});U.openSid=s.id;render();toast('Moved to '+fmtD(pd(nd),{weekday:'long',month:'short',day:'numeric'}))}},
+ logpast:pickPast,
  delsess:async d=>{const s=S.sessions[d.sid];if(!s)return;const r=await ask('Delete this entry?',`<p>“${esc(s.name)}” on ${fmtD(pd(s.date),{month:'long',day:'numeric'})} will be removed from your history.</p>`,[['cancel','Cancel'],['ok','Delete','danger pri']]);if(r.k==='ok'){put('sessions',d.sid,null);render()}},
  addfolder:()=>{const c=clone(C());c.folders.push({id:uid(),name:'Gym '+(c.folders.length+1),color:PLATES[c.folders.length%PLATES.length].k});put('cfg','main',c);render()},
  delfolder:d=>{const c=clone(C());if(Object.values(S.workouts).some(w=>w.folder===d.fid)||c.folders.length<2)return;c.folders=c.folders.filter(f=>f.id!==d.fid);put('cfg','main',c);render()},
@@ -1022,7 +1049,7 @@ const ACT={
  setadd:d=>{const e=U.draft.ex[+d.i],l=e.sets[e.sets.length-1]||{w:0,r:10,t:0,d:0};e.sets.push(Object.assign({},l));U.dirty=true;renderSheet()},
  setdel:d=>{const e=U.draft.ex[+d.i];if(e.sets.length>1)e.sets.splice(+d.s,1);U.dirty=true;renderSheet()},
  tick:d=>{const A=S.active,i=+d.i,j=+d.s,e=A.ex[i],s=e.sets[j];if(U.cd&&U.cd.i===i&&U.cd.j===j){U.cd=null;cancelBeep('cd')}s.done=!s.done;setActive(A);relog(i,s.done?j:undefined);
-  if(s.done){const r=e.ss&&i<A.ex.length-1?0:(e.rest||0);if(r>0){U.rest={end:Date.now()+r*1000};beep(r,'rest')}else{U.rest=null;cancelBeep('rest')}updateTimers()}},
+  if(s.done&&!A.back){const r=e.ss&&i<A.ex.length-1?0:(e.rest||0);if(r>0){U.rest={end:Date.now()+r*1000};beep(r,'rest')}else{U.rest=null;cancelBeep('rest')}updateTimers()}},
  cdstart:d=>cdStart(+d.i,+d.s),
  cdstop:cdStop,
  lsetadd:d=>{const e=S.active.ex[+d.i],l=e.sets[e.sets.length-1]||{w:0,r:10,t:0,d:0};e.sets.push(Object.assign({},l,{done:false}));setActive(S.active);relog(+d.i)},
@@ -1085,7 +1112,7 @@ $('#view').addEventListener('toggle',e=>{const t=e.target;if(t.matches&&t.matche
 window.addEventListener('hashchange',()=>{readHash();render()});
 setInterval(()=>{if(!S.active)return;if(U.sheet==='log'){const el=$('#elapsed');if(el)el.textContent=fmtDur(Date.now()-S.active.start)}updateTimers()},250);
 
-const APPV='2026-11-25.4';
+const APPV='2026-11-25.5';
 let auth=null,fs=null,unsubs=[];
 function fbDb(fsx,uid){
  const F=window.FB,base='users/'+uid+'/';

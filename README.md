@@ -38,7 +38,7 @@ service cloud.firestore {
 - `cfg/videos`: your own YouTube videos, `list` of `{k, name, url}` where `k` is the exercise name in lower case, or `lib:<library id>` for one saved from the Exercises tab
 - `workouts/{id}`: workout templates (`ex` = exercises, each with `sets`, `rest`, `ss` = superset with next, `lib` = linked library exercise id, `focus` = str/end/mob/sta override; empty means auto-detected from the name, type and library category, with stretches counted as mobility)
 - `plan/{YYYY-MM-DD}`: workouts scheduled on a day
-- `sessions/{id}`: logged workouts with the sets that were done
+- `sessions/{id}`: logged workouts with the sets that were done. Workouts logged for an earlier day (Week → tap the workout → Log as done, or History → Log a past workout) get that date, a 12:00 start and an estimated duration
 
 ## Releasing a change
 
